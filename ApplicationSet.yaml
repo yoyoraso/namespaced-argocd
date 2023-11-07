@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dev-applicationset
+  namespace: argocd # here we define the namesapce that the ApplicationSet Manifest will be deployed on.
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/yoyoraso/helm-configurations/tree/main
+        revision: HEAD
+        directories:
+          - path: configs/* # this will create variables with all the paths under /configs directory (eg all microservices configs dirs)
+  template:
+    metadata:
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "/configs/{{path.basename}}/dev"
+        argocd.argoproj.io/sync-options: Prune=true
+      namespace: dxl
+      name: "{{path.basename}}-dev" # Name displayed in ArgoCD UI (Application name)
+    spec:
+      project: dev
+      source:
+        path: .
+        plugin:
+          env:
+          - name: helm_args
+            value: -f configs/{{path.basename}}/values.yaml -f configs/{{path.basename}}/dxl-dev-gr/values.yaml
+              --set ms_dir={{path.basename}}
+          name: argocd-vault-plugin-helm
+        repoURL: https://github.com/yoyoraso/helm-configurations/tree/main
+        targetRevision: HEAD
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "dev"

@@ -13,13 +13,16 @@ kubectl apply --filename=https://github.com/argoproj/argo-cd/blob/master/manifes
 kubectl apply --filename=https://github.com/argoproj/argo-cd/blob/master/manifests/crds/applicationset-crd.yaml?raw=true
 
 # Main namespace is where argocd will be deployed
-export main_namespace=main 
-export target_namespaces=target1,target2
+export main_namespace=argocd
+export target_namespaces=dev,prod
 
 ## Main Namespace setup ##
 
 # Create argocd manager service account in main namespace 
 kubectl create serviceaccount argocd-manager --namespace=$main_namespace
+
+# Create argocd manager service account Token in main namespace
+kubectl apply --filename argocd-manager-secret.yaml --namespace=$main_namespace
 
 # Create argocd manager role in main namespace
 kubectl apply --filename argocd-manager-role.yaml --namespace=$main_namespace
@@ -30,11 +33,8 @@ kubectl create rolebinding argocd-manager-role-binding \
 --role argocd-manager-role \
 --serviceaccount=$main_namespace:argocd-manager
 
-# Get the Secret name that contains the token
-export argocd_manager_sa_secret=$(kubectl get serviceaccount argocd-manager --output=json --namespace=$main_namespace | jq --raw-output .secrets[].name)
-
 # Grab the token from the secret
-export argocd_manager_token=$(kubectl get secret $argocd_manager_sa_secret --output=json --namespace=$main_namespace | jq --raw-output .data.token | base64 --decode)
+export argocd_manager_token=$( kubectl get secret argocd-manager --output=json --namespace=argocd | jq --raw-output .data.token | base64 --decode)
 
 # Create argocd-managed secret
 kubectl delete secret cluster-kubernetes.default.svc-argocd-managed --ignore-not-found --namespace=$main_namespace
